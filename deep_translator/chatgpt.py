@@ -1,6 +1,7 @@
 __copyright__ = "Copyright (C) 2020 Nidhal Baccouri"
 
 import os
+import json
 from typing import List, Optional
 
 from deep_translator.base import BaseTranslator
@@ -55,8 +56,11 @@ class ChatGptTranslator(BaseTranslator):
             base_url=self.base_url if self.base_url else None
         )
 
-        prompt = f"Translate the text below into {self.target}.\n"
-        prompt += f'Text: "{text}"'
+        prompt = f"""
+        Provide your translation '{text}' from {self.source} to {self.target} in JSON format with the following structure:
+
+        {{ "text": string }}
+        """
 
         # if model is empty (for mlx_lm.server, the model should be default_model)
         # export OPENAI_MODEL=default_model
@@ -68,10 +72,14 @@ class ChatGptTranslator(BaseTranslator):
                     "content": prompt,
                 }
             ],
+            response_format={"type": "json_object"}
         )
-        
 
-        return response.choices[0].message.content
+        try:
+            return json.loads(response.choices[0].message.content).get("text")
+        except Exception:
+            # if the response is not a valid json
+            return response.choices[0].message.content
 
     def translate_file(self, path: str, **kwargs) -> str:
         return self._translate_file(path, **kwargs)
